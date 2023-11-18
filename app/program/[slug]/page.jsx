@@ -3,6 +3,7 @@ import React from "react";
 import { useParams } from "next/navigation";
 import Data from "../../../data/FullData.json";
 import zone from "../../../data/zone.json";
+import * as XLSX from "xlsx";
 
 function ProgramDetail() {
   const { slug } = useParams();
@@ -87,6 +88,38 @@ function ProgramDetail() {
     // Handle the case where the program is not found
     return <div>Program not found</div>;
   }
+  const downloadExcelFile = () => {
+    const candidateData = programData.candidates.map((candidate) => ({
+      code: candidate.code,
+    }));
+
+    // Add program title row at the beginning
+    const programTitleRow = [
+      { programTitle: `${programData.program} (${programData.category})` },
+    ];
+
+    const ws = XLSX.utils.json_to_sheet([...programTitleRow, ...candidateData]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    const excelBuffer = XLSX.write(wb, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const data = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute(
+      "download",
+      `${programData.program}_${programData.category}_${programData.slug}.xlsx`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="p-20 text-sm print:p-2 lg:flex lg:flex-col lg:items-center">
@@ -96,6 +129,12 @@ function ProgramDetail() {
         <h1 className="font-bold mt-2 border-y-2 mb-4 border-black">
           {programData.program} ({programData.category})
         </h1>
+        <button
+          className="bg-green-600 text-white font-semibold rounded hover:bg-transparent hover:text-green-600 border border-green-600 transition px-2 py-1"
+          onClick={downloadExcelFile}
+        >
+          Download As Excel
+        </button>
       </div>
 
       <table className="m-3">

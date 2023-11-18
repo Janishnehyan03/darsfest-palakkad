@@ -2,6 +2,8 @@
 import React, { useState } from "react";
 import Data from "../../data/FullData.json";
 import Link from "next/link";
+import * as XLSX from "xlsx";
+
 function Search() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
@@ -17,6 +19,54 @@ function Search() {
     "groupstage3",
     "groupoffstage",
   ];
+  
+  const downloadExcelFile = () => {
+    const allCandidates = Data.filter((candidate) => candidate.category === 'JUNIOR' || candidate.category === 'SENIOR');
+  
+    const extractCodeAndProgramData = (candidates) => {
+      return candidates.map((candidate) => ({
+        code: candidate.code,
+        programTitle: `${candidate.stage1 || 'Unknown Program'} (${candidate.category})`,
+      }));
+    };
+  
+    const groupedCandidates = allCandidates.reduce((grouped, candidate) => {
+      const programTitle = `${candidate.stage1 || 'Unknown Program'} (${candidate.category})`;
+      
+      if (!grouped[programTitle]) {
+        grouped[programTitle] = [];
+      }
+  
+      grouped[programTitle].push({
+        code: candidate.code,
+        programTitle: programTitle,
+      });
+  
+      return grouped;
+    }, {});
+  
+    const flattenedCandidates = Object.values(groupedCandidates).flatMap((candidates) => candidates);
+  
+    const ws = XLSX.utils.json_to_sheet(flattenedCandidates);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Candidates Data');
+  
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  
+    const data = new Blob([excelBuffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    });
+    const url = URL.createObjectURL(data);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'candidates_data.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
+  
+  
   const allValues = Data.reduce((result, item) => {
     programFields.forEach((field) => {
       if (item[field]) {
@@ -24,7 +74,8 @@ function Search() {
         const candidates = Data.filter((candidate) => {
           return programFields.some((fieldToCheck) => {
             return (
-              candidate[fieldToCheck] === programValue && candidate.category === item.category
+              candidate[fieldToCheck] === programValue &&
+              candidate.category === item.category
             );
           });
         }).map((candidate) => ({
@@ -39,7 +90,7 @@ function Search() {
         });
       }
     });
-  
+
     return result;
   }, []);
 
@@ -80,53 +131,64 @@ function Search() {
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
-  return (<>
-    <div className="lg:fixed lg:right-20 lg:top-5 bg-white w-full lg:w-fit text-center rounded-full lg:p-4 px-4 p-10">
-    <Link className="bg-white text-slate-800 p-2 hover:bg-secondary font-bold rounded-2xl mx-1" href="/">Candidates
-    </Link>
-    <Link className="bg-white text-primary p-2 hover:bg-secondary font-bold rounded-2xl mx-1" href="/program">Programs
-    </Link>
-    <Link className="bg-white text-slate-800 p-2 hover:bg-secondary font-bold rounded-2xl mx-1" href="/dars/">Dars List
-    </Link>
-  </div>
-    <div className="p-12 pt-0 lg:p-20">
-
-      <div className="flex flex-col items-center gap-4">
-
-        <h1 className="text-center font-extrabold text-3xl text-primary mb-3">
-          Program Search
-        </h1>
-        <input
-          type="text"
-          placeholder="Search by CODE, Name, Dars Name, etc."
-          value={searchTerm}
-          onChange={handleSearch}
-          className="w-2/3 px-4 py-2 rounded-xl border-2 border-dashed border-primary"
-        />
-        <div className="flex flex-wrap gap-2 justify-center mt-3">
-          {filteredData.map((item, index) => (
-            <Link key={index} href={`/program/${item.slug}`}>
-              <div
-                className="w-72 bg-secondary p-6 rounded-xl flex flex-col gap-2 items-start cursor-pointer"
-              >
-                <div className="flex justify-between items-center w-full">
-                  {" "}
-                  <h1 className="px-2 py-1 bg-primary inline rounded-lg text-white font-semibold">
-                    {item.category}
-                  </h1>
-                  <h1 className="text-primary font-semibold">
-                    {item.candidates.length} Candidates
-                  </h1>
+  return (
+    <>
+      <div className="lg:fixed lg:right-20 lg:top-5 bg-white w-full lg:w-fit text-center rounded-full lg:p-4 px-4 p-10">
+        <Link
+          className="bg-white text-slate-800 p-2 hover:bg-secondary font-bold rounded-2xl mx-1"
+          href="/"
+        >
+          Candidates
+        </Link>
+        <Link
+          className="bg-white text-primary p-2 hover:bg-secondary font-bold rounded-2xl mx-1"
+          href="/program"
+        >
+          Programs
+        </Link>
+        <Link
+          className="bg-white text-slate-800 p-2 hover:bg-secondary font-bold rounded-2xl mx-1"
+          href="/dars/"
+        >
+          Dars List
+        </Link>
+      </div>
+      <div className="p-12 pt-0 lg:p-20">
+        <div className="flex flex-col items-center gap-4">
+          <h1 className="text-center font-extrabold text-3xl text-primary mb-3">
+            Program Search
+          </h1>
+          <input
+            type="text"
+            placeholder="Search by CODE, Name, Dars Name, etc."
+            value={searchTerm}
+            onChange={handleSearch}
+            className="w-2/3 px-4 py-2 rounded-xl border-2 border-dashed border-primary"
+          />
+          <button className="bg-green-500 px-2 border border-green-500 cursor-pointer text-white" onClick={downloadExcelFile}> Download As Excel </button>
+          <div className="flex flex-wrap gap-2 justify-center mt-3">
+            {filteredData.map((item, index) => (
+              <Link key={index} href={`/program/${item.slug}`}>
+                <div className="w-72 bg-secondary p-6 rounded-xl flex flex-col gap-2 items-start cursor-pointer">
+                  <div className="flex justify-between items-center w-full">
+                    {" "}
+                    <h1 className="px-2 py-1 bg-primary inline rounded-lg text-white font-semibold">
+                      {item.category}
+                    </h1>
+                    <h1 className="text-primary font-semibold">
+                      {item.candidates.length} Candidates
+                    </h1>
+                  </div>
+                  <div className="line-clamp-2 border-2 h-16 p-3 my-2 border-primary flex items-center justify-center rounded-xl border-dashed w-full">
+                    <p className="line-clamp-2 text-center">{item.program}</p>
+                  </div>
                 </div>
-                <div className="line-clamp-2 border-2 h-16 p-3 my-2 border-primary flex items-center justify-center rounded-xl border-dashed w-full">
-                  <p className="line-clamp-2 text-center">{item.program}</p>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
-    </div></>
+    </>
   );
 }
 
